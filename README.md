@@ -29,9 +29,10 @@ What you get:
 
 ## Project Docs
 
-- [KICKOFF.md](KICKOFF.md): original goals, constraints, and initial direction for the project (the “why” and the first plan).
+- [KICKOFF.md](KICKOFF.md): original goals, constraints, and initial direction for the project (the "why" and the first plan).
 - [BLOG_POST.md](BLOG_POST.md): a reflective write-up on building and shipping a fully AI-coded project, including lessons learned.
 - [CODE_MAP.md](CODE_MAP.md): a concise map of files and architecture; how the tools fit together and common flows.
+- [SPEC.md](SPEC.md): technical specification for Stage 1 Archive Browser components (ZIP metadata reader and TUI list).
 
 ## Requirements
 
@@ -99,7 +100,26 @@ npm install
   - `echo '["a.json","b.json"]' | npm run tuilist --`
 - Keys: arrows to move; Enter exits.
 
-### 6) `gptbrowser` — browse and read ChatGPT conversations
+### 6) `analyze` — analyze ChatGPT export data
+
+- Usage:
+  - `npm run analyze -- backup1/conversations.json`
+  - `npm run analyze -- newer.json --diff older.json`
+- Output: JSON with conversation metrics (counts, lines, words, averages)
+- Diff mode: compares two exports to show growth/changes
+- Features:
+  - Total conversations, messages, lines, and words
+  - Per-conversation breakdown
+  - Average metrics (messages per conversation, words per message, etc.)
+  - Diff analysis between two export files
+
+### 7) `zipread` — extract single ZIP entry as text
+
+- Usage:
+  - `npm run zipread -- archive.zip path/to/file.txt`
+- Output: UTF-8 text content of the specified entry
+
+### 8) `gptbrowser` — browse and read ChatGPT conversations
 
 - Usage:
   - `npm run gptbrowser -- zips/export.zip`
