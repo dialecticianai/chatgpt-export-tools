@@ -22,7 +22,7 @@ Thumbs.db
 
 # Local data and caches
 artifacts/
-backup1/
+backup*/
 exports/
 zips/
 .cache/

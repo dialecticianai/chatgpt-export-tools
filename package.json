@@ -9,6 +9,8 @@
     "tuilist": "node cli/tuilist.js",
     "jsontree": "node cli/jsontree.js",
     "gptbrowser": "node cli/gptbrowser.js",
+    "zipread": "node cli/zipread.js",
+    "analyze": "node cli/analyze_export.js",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier -w \"**/*.{js,md}\"",
