@@ -132,9 +132,13 @@ This document orients you to the project structure, what each file does, and how
     - `v`: spawn `cli/gptbrowser.js` for GPT-specialized browsing.
 
 - GPT Browsing Path
-  - `cli/gptbrowser.js` → `lib/zip.js.readEntryText('conversations.json')` → `lib/gpt.js.reduceMappingToMessages()` →
+  - `cli/gptbrowser.js` → `lib/conversation_stream.js.collectConversations()` → `lib/gpt.js.reduceMappingToMessages()` →
     UI render via `lib/terminal.js` (search, highlight, navigation) →
     Optional export via `lib/io.js.writeFileUnique()`.
+
+- Batch Query Path
+  - `cli/convo_query.js` → `lib/conversation_stream.js.streamConversations()` → optional regex filtering →
+    emits NDJSON matches or stats JSON for downstream automation (no TUI).
 
 - Safety and UX
   - Cursor visibility and TTY cleanup are handled centrally by `ensureCursorOnExit()`.

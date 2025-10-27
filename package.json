@@ -25,7 +25,8 @@
     "jsontree": "cli/jsontree.js",
     "tuilist": "cli/tuilist.js",
     "gptbrowser": "cli/gptbrowser.js",
-    "mapping-reduce": "cli/mapping_reduce.js"
+    "mapping-reduce": "cli/mapping_reduce.js",
+    "convo-query": "cli/convo_query.js"
   },
   "author": "selberhad@gmail.com",
   "license": "MIT",

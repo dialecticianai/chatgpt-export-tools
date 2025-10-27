@@ -135,6 +135,24 @@ npm install
   - Search in text: `/` enter search mode, live matches with yellow highlight, `ESC` cancel, `Enter` accept; `n/N` jump next/prev match.
   - Export: saves plain text to `<title>.txt` using the same formatting shown in the viewer (no colors).
 
+### 9) `convo-query` — non-interactive search & stats
+
+- Usage:
+  - `npm run convo-query -- export.zip --title "iPhone" --message "RAM" --limit 5`
+  - `npm run convo-query -- export.zip --mode stats`
+- Modes:
+  - **matches** (default): emits matching records as NDJSON (one JSON per line). Use `--format json` for a single JSON array.
+  - **stats**: prints aggregate counts (conversations, messages, authors, averages) as JSON.
+- Filters:
+  - `--title <regex>`: match conversation titles
+  - `--message <regex>`: match message text
+  - `--author user,assistant`: limit to specific authors
+  - `--case-sensitive`: make regexes case-sensitive
+  - `--limit N`: stop after emitting N matches (matches mode)
+- Extras:
+  - `--stats` in matches mode prints a processing summary to stderr (JSON).
+  - Works with raw `conversations.json`, directories, or ZIP exports; relies on the streaming parser so large files are safe.
+
 ## Notes
 
 - Cursor restore: all tools restore the cursor on exit (even on Ctrl-C) to avoid a hidden cursor in your terminal.
