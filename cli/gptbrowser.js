@@ -13,8 +13,8 @@ import {
   wrapLines,
 } from '../lib/terminal.js';
 import { emitError } from '../lib/io.js';
-import { readEntryText } from '../lib/zip.js';
 import { reduceMappingToMessages, exportConversationPlain } from '../lib/gpt.js';
+import { collectConversations } from '../lib/conversation_stream.js';
 
 ensureCursorOnExit();
 
@@ -255,19 +255,11 @@ async function main() {
     process.exit(1);
   }
 
-  let text;
-  try {
-    text = await readEntryText(zipPath, 'conversations.json');
-  } catch (e) {
-    term.red(`Failed to read conversations.json: ${String((e && e.message) || e)}\n`);
-    terminalLeave();
-    process.exit(1);
-  }
   let conversations;
   try {
-    conversations = JSON.parse(text);
+    conversations = await collectConversations(zipPath);
   } catch (e) {
-    term.red(`Failed to parse conversations.json: ${String((e && e.message) || e)}\n`);
+    term.red(`Failed to load conversations.json: ${String((e && e.message) || e)}\n`);
     terminalLeave();
     process.exit(1);
   }
