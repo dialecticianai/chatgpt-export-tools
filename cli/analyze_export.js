@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 // analyze_export — compute basic metrics from a ChatGPT conversations.json
-import fs from 'node:fs';
 import path from 'node:path';
 import { reduceMappingToMessages } from '../lib/gpt.js';
+import { streamConversations } from '../lib/conversation_stream.js';
 
 function countLines(s) {
   const str = String(s ?? '');
@@ -16,21 +16,19 @@ function countWords(s) {
   return str.split(/\s+/).length;
 }
 
-function readJson(p) {
-  return JSON.parse(fs.readFileSync(p, 'utf8'));
-}
-
-function computeSummaryFromData(data, file) {
-  if (!Array.isArray(data)) throw new Error('JSON root is not an array of conversations');
-  const totalConversations = data.length;
+async function computeSummaryFromFile(file) {
   let totalMessages = 0;
   let totalLines = 0;
   let totalWords = 0;
   const perConversation = [];
-  for (let i = 0; i < data.length; i++) {
-    const convo = data[i] || {};
-    const mapping = convo.mapping || {};
-    const current = convo.current_node;
+  let index = 0;
+  for await (const convo of streamConversations(file)) {
+    const i = index;
+    index += 1;
+    const conversation = convo || {};
+    if (typeof conversation !== 'object') continue;
+    const mapping = conversation.mapping || {};
+    const current = conversation.current_node;
     const messages = reduceMappingToMessages(mapping, { currentNodeId: current });
     let mCount = 0, lCount = 0, wCount = 0;
     for (const m of messages) {
@@ -42,16 +40,22 @@ function computeSummaryFromData(data, file) {
     totalMessages += mCount;
     totalLines += lCount;
     totalWords += wCount;
-    perConversation.push({ index: i, title: convo.title || `Conversation #${i + 1}`, messages: mCount, lines: lCount, words: wCount });
+    perConversation.push({
+      index: i,
+      title: conversation.title || `Conversation #${i + 1}`,
+      messages: mCount,
+      lines: lCount,
+      words: wCount,
+    });
   }
   const avg = (a, b) => (b > 0 ? a / b : 0);
   const summary = {
     file,
-    total_conversations: totalConversations,
+    total_conversations: index,
     total_messages: totalMessages,
     total_lines: totalLines,
     total_words: totalWords,
-    avg_messages_per_conversation: avg(totalMessages, totalConversations),
+    avg_messages_per_conversation: avg(totalMessages, index),
     avg_lines_per_message: avg(totalLines, totalMessages),
     avg_words_per_message: avg(totalWords, totalMessages),
   };
@@ -79,40 +83,54 @@ function diffSummaries(newer, older) {
   };
 }
 
-function main() {
+async function main() {
   const file = process.argv[2] || path.resolve('backup1/conversations.json');
   const diffFlagIndex = process.argv.indexOf('--diff');
   const hasDiff = diffFlagIndex !== -1 && process.argv[diffFlagIndex + 1];
-  let newerData, olderData;
+
+  let newerResult;
   try {
-    newerData = readJson(file);
+    newerResult = await computeSummaryFromFile(file);
   } catch (e) {
-    console.error(JSON.stringify({ type: 'ERR_READ', message: 'Failed to read/parse newer JSON', hint: String(e && e.message || e), file }));
+    console.error(
+      JSON.stringify({
+        type: 'ERR_READ',
+        message: 'Failed to read/parse newer JSON',
+        hint: String((e && e.message) || e),
+        file,
+      }),
+    );
     process.exit(1);
   }
-  let newer;
+
+  const newer = newerResult.summary;
+  if (!hasDiff) {
+    process.stdout.write(JSON.stringify({ summary: newer, per_conversation: newerResult.perConversation }) + '\n');
+    return;
+  }
+
+  const olderPath = process.argv[diffFlagIndex + 1];
+  let olderSummary;
   try {
-    const r = computeSummaryFromData(newerData, file);
-    newer = r.summary;
-    // For the non-diff path we will output perConversation as well
-    if (!hasDiff) {
-      process.stdout.write(JSON.stringify({ summary: newer, per_conversation: r.perConversation }) + '\n');
-      return;
-    }
-    olderData = readJson(process.argv[diffFlagIndex + 1]);
+    olderSummary = (await computeSummaryFromFile(olderPath)).summary;
   } catch (e) {
-    console.error(JSON.stringify({ type: 'ERR_SHAPE', message: String(e && e.message || e) }));
+    console.error(
+      JSON.stringify({
+        type: 'ERR_SHAPE',
+        message: 'Older JSON invalid',
+        hint: String((e && e.message) || e),
+      }),
+    );
     process.exit(1);
   }
-  let older;
-  try {
-    older = computeSummaryFromData(olderData, process.argv[diffFlagIndex + 1]).summary;
-  } catch (e) {
-    console.error(JSON.stringify({ type: 'ERR_SHAPE', message: 'Older JSON invalid', hint: String(e && e.message || e) }));
-    process.exit(1);
-  }
-  const diff = diffSummaries(newer, older);
-  process.stdout.write(JSON.stringify({ newer_summary: newer, older_summary: older, diff_summary: diff }) + '\n');
+
+  const diff = diffSummaries(newer, olderSummary);
+  process.stdout.write(
+    JSON.stringify({ newer_summary: newer, older_summary: olderSummary, diff_summary: diff }) + '\n',
+  );
 }
 
-main();
+main().catch(err => {
+  console.error(JSON.stringify({ type: 'ERR_RUNTIME', message: String((err && err.message) || err) }));
+  process.exit(1);
+});
