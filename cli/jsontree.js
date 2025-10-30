@@ -5,8 +5,10 @@
 //   cat file.json | node cli/jsontree.js
 import { createRequire } from 'node:module';
 import fs from 'node:fs';
+import path from 'node:path';
 import { stdin as input, stderr as err } from 'node:process';
 import { ensureCursorOnExit } from '../lib/terminal.js';
+import { collectConversations } from '../lib/conversation_stream.js';
 
 const require = createRequire(import.meta.url);
 let termkit;
@@ -36,18 +38,39 @@ async function readStdin() {
   });
 }
 
-async function loadJsonText() {
+async function loadJsonValue() {
   const p = process.argv[2];
   if (p && p !== '-') {
+    const resolved = path.resolve(p);
+    const lower = resolved.toLowerCase();
+    if (lower.endsWith('.zip')) {
+      try {
+        return await collectConversations(resolved);
+      } catch (e) {
+        emitError('ERR_READ', 'cannot read file', String((e && e.message) || e));
+        process.exit(1);
+      }
+    }
     try {
-      return fs.readFileSync(p, 'utf8');
+      const text = fs.readFileSync(resolved, 'utf8');
+      return JSON.parse(text);
     } catch (e) {
-      emitError('ERR_READ', 'cannot read file', String((e && e.message) || e));
+      const message = String((e && e.message) || e);
+      if (message.includes('Cannot create a string longer') || lower.endsWith('conversations.json')) {
+        try {
+          return await collectConversations(resolved);
+        } catch (inner) {
+          emitError('ERR_READ', 'cannot read file', String((inner && inner.message) || inner));
+          process.exit(1);
+        }
+      }
+      emitError('ERR_READ', 'cannot read file', message);
       process.exit(1);
     }
   }
   try {
-    return await readStdin();
+    const text = await readStdin();
+    return JSON.parse(text);
   } catch (e) {
     emitError('ERR_STDIN', 'failed to read stdin', String((e && e.message) || e));
     process.exit(1);
@@ -197,15 +220,7 @@ async function main() {
   // hide cursor (toggle API per terminal-kit) and grab input for key events
   term.hideCursor();
   term.grabInput(true);
-  const text = await loadJsonText();
-  let rootVal;
-  try {
-    rootVal = JSON.parse(text);
-  } catch (e) {
-    emitError('ERR_JSON_PARSE', 'invalid JSON', String((e && e.message) || e));
-    term.hideCursor();
-    process.exit(1);
-  }
+  const rootVal = await loadJsonValue();
 
   const root = makeNode({ key: null, value: rootVal, depth: 0, path: [], parent: null });
   let visible = [];
@@ -350,5 +365,8 @@ async function main() {
   term.on('key', onKey);
 }
 
-main();
+main().catch(err => {
+  emitError('ERR_RUNTIME', 'unexpected error', String((err && err.message) || err));
+  process.exit(1);
+});
 ensureCursorOnExit();
